@@ -48,6 +48,14 @@ For local development:
 For Vercel production, set `NEXT_PUBLIC_SITE_URL` to the production deployment URL and add:
 
 - `https://<production-domain>/auth/callback`
+- `https://<production-domain>/auth/confirm`
+
+Current production values:
+
+- `https://finance-personal-red.vercel.app/auth/callback`
+- `https://finance-personal-red.vercel.app/auth/confirm`
+
+If magic links redirect to `localhost:3000`, Supabase Auth is falling back to its Site URL. Add the exact production callback URL above in Supabase Dashboard > Authentication > URL Configuration > Redirect URLs.
 
 ## CI/CD Flow
 

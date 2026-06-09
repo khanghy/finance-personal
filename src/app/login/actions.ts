@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -11,7 +12,8 @@ export async function signInWithMagicLink(formData: FormData) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const requestHeaders = await headers();
+  const origin = getRequestOrigin(requestHeaders);
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
@@ -24,4 +26,17 @@ export async function signInWithMagicLink(formData: FormData) {
   }
 
   redirect("/login?sent=1");
+}
+
+function getRequestOrigin(requestHeaders: Headers) {
+  const forwardedHost = requestHeaders.get("x-forwarded-host");
+  const host = forwardedHost ?? requestHeaders.get("host");
+  const forwardedProto = requestHeaders.get("x-forwarded-proto");
+  const proto = forwardedProto ?? (host?.includes("localhost") ? "http" : "https");
+
+  if (host) {
+    return `${proto}://${host}`;
+  }
+
+  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 }

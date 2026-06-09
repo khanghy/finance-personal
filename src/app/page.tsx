@@ -67,22 +67,22 @@ export default async function Home({
   return (
     <main className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
             <div>
               <p className="text-sm font-medium text-teal-700">Finance Personal MVP</p>
-              <h1 className="mt-1 text-3xl font-semibold tracking-normal text-slate-950">Quản lý tài chính cá nhân</h1>
+              <h1 className="mt-1 text-2xl font-semibold tracking-normal text-slate-950 sm:text-3xl">Quản lý tài chính cá nhân</h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
                 Các tab tách riêng dashboard, giao dịch, nợ, nhắc hạn, import CSV và AI cố vấn.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button asChild variant="outline">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+              <Button asChild variant="outline" className="w-full sm:w-auto">
                 <a href="/login">
                   <LogIn size={16} /> Đăng nhập
                 </a>
               </Button>
-              <Button asChild variant="secondary">
+              <Button asChild variant="secondary" className="w-full sm:w-auto">
                 <a href={`data:text/csv;charset=utf-8,${encodeURIComponent(csvExport)}`} download="finance-transactions.csv">
                   <Download size={16} /> Export CSV
                 </a>
@@ -109,7 +109,7 @@ export default async function Home({
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-5 px-4 py-5 sm:gap-6 sm:px-6 sm:py-6 lg:px-8">
         {activeTab === "dashboard" ? (
           <DashboardTab
             summary={summary}
@@ -190,7 +190,7 @@ function TransactionsTab({ transactions }: { transactions: Parameters<typeof mon
           <CardDescription>Dữ liệu được đọc từ Supabase khi đã đăng nhập; form bên phải ghi trực tiếp vào backend.</CardDescription>
         </CardHeader>
         <CardContent>
-          <TransactionsTable transactions={transactions} />
+            <TransactionsView transactions={transactions} />
         </CardContent>
       </Card>
       <Card>
@@ -246,7 +246,7 @@ function DebtsTab({
             <CardDescription>Theo dõi số dư, lãi suất, hạn trả và khoản tối thiểu.</CardDescription>
           </CardHeader>
           <CardContent>
-            <DebtsTable debts={debts} />
+            <DebtsView debts={debts} />
           </CardContent>
         </Card>
         <Card>
@@ -438,71 +438,117 @@ function ImportTab() {
   );
 }
 
-function TransactionsTable({ transactions }: { transactions: Parameters<typeof monthlySeries>[0] }) {
+function TransactionsView({ transactions }: { transactions: Parameters<typeof monthlySeries>[0] }) {
   if (transactions.length === 0) {
     return <EmptyState text="Chưa có giao dịch nào." />;
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Ngày</TableHead>
-          <TableHead>Loại</TableHead>
-          <TableHead>Danh mục</TableHead>
-          <TableHead>Tài khoản</TableHead>
-          <TableHead className="text-right">Số tiền</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+    <>
+      <div className="grid gap-3 md:hidden">
         {transactions.map((transaction) => (
-          <TableRow key={transaction.id}>
-            <TableCell>{transaction.date}</TableCell>
-            <TableCell>
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-3" key={transaction.id}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-medium text-slate-950">{transaction.category}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {transaction.date} · {transaction.account}
+                </p>
+              </div>
+              <p className="shrink-0 text-sm font-semibold text-slate-950">{formatVnd(transaction.amount)}</p>
+            </div>
+            <div className="mt-3">
               <Badge variant={transaction.type === "income" ? "success" : "warning"}>
                 {transaction.type === "income" ? "Thu nhập" : "Chi tiêu"}
               </Badge>
-            </TableCell>
-            <TableCell>{transaction.category}</TableCell>
-            <TableCell>{transaction.account}</TableCell>
-            <TableCell className="text-right font-medium text-slate-950">{formatVnd(transaction.amount)}</TableCell>
-          </TableRow>
+            </div>
+          </div>
         ))}
-      </TableBody>
-    </Table>
+      </div>
+      <div className="hidden md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Ngày</TableHead>
+              <TableHead>Loại</TableHead>
+              <TableHead>Danh mục</TableHead>
+              <TableHead>Tài khoản</TableHead>
+              <TableHead className="text-right">Số tiền</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {transactions.map((transaction) => (
+              <TableRow key={transaction.id}>
+                <TableCell>{transaction.date}</TableCell>
+                <TableCell>
+                  <Badge variant={transaction.type === "income" ? "success" : "warning"}>
+                    {transaction.type === "income" ? "Thu nhập" : "Chi tiêu"}
+                  </Badge>
+                </TableCell>
+                <TableCell>{transaction.category}</TableCell>
+                <TableCell>{transaction.account}</TableCell>
+                <TableCell className="text-right font-medium text-slate-950">{formatVnd(transaction.amount)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 }
 
-function DebtsTable({ debts }: { debts: Parameters<typeof buildAvalanchePlan>[0] }) {
+function DebtsView({ debts }: { debts: Parameters<typeof buildAvalanchePlan>[0] }) {
   if (debts.length === 0) {
     return <EmptyState text="Chưa có khoản nợ nào." />;
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Tên khoản nợ</TableHead>
-          <TableHead>Trạng thái</TableHead>
-          <TableHead>Lãi suất</TableHead>
-          <TableHead>Hạn trả</TableHead>
-          <TableHead className="text-right">Số dư</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+    <>
+      <div className="grid gap-3 md:hidden">
         {debts.map((debt) => (
-          <TableRow key={debt.id}>
-            <TableCell className="font-medium text-slate-950">{debt.name}</TableCell>
-            <TableCell>
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-3" key={debt.id}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-medium text-slate-950">{debt.name}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Hạn {debt.dueDate} · Lãi {debt.interestRate}%
+                </p>
+              </div>
+              <p className="shrink-0 text-sm font-semibold text-slate-950">{formatVnd(debt.currentBalance)}</p>
+            </div>
+            <div className="mt-3">
               <DebtStatusBadge status={debt.status} />
-            </TableCell>
-            <TableCell>{debt.interestRate}%</TableCell>
-            <TableCell>{debt.dueDate}</TableCell>
-            <TableCell className="text-right font-medium text-slate-950">{formatVnd(debt.currentBalance)}</TableCell>
-          </TableRow>
+            </div>
+          </div>
         ))}
-      </TableBody>
-    </Table>
+      </div>
+      <div className="hidden md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Tên khoản nợ</TableHead>
+              <TableHead>Trạng thái</TableHead>
+              <TableHead>Lãi suất</TableHead>
+              <TableHead>Hạn trả</TableHead>
+              <TableHead className="text-right">Số dư</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {debts.map((debt) => (
+              <TableRow key={debt.id}>
+                <TableCell className="font-medium text-slate-950">{debt.name}</TableCell>
+                <TableCell>
+                  <DebtStatusBadge status={debt.status} />
+                </TableCell>
+                <TableCell>{debt.interestRate}%</TableCell>
+                <TableCell>{debt.dueDate}</TableCell>
+                <TableCell className="text-right font-medium text-slate-950">{formatVnd(debt.currentBalance)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 }
 
@@ -532,7 +578,7 @@ function MetricCard({
           <CalendarClock className="text-slate-300" size={18} />
         </div>
         <p className="mt-4 text-sm text-slate-500">{label}</p>
-        <p className="mt-1 text-2xl font-semibold tracking-normal text-slate-950">{value}</p>
+        <p className="mt-1 text-xl font-semibold tracking-normal text-slate-950 sm:text-2xl">{value}</p>
       </CardContent>
     </Card>
   );
