@@ -29,6 +29,11 @@ export async function signInWithMagicLink(formData: FormData) {
 }
 
 function getRequestOrigin(requestHeaders: Headers) {
+  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (configuredSiteUrl && configuredSiteUrl !== "http://localhost:3000") {
+    return configuredSiteUrl.replace(/\/$/, "");
+  }
+
   const forwardedHost = requestHeaders.get("x-forwarded-host");
   const host = forwardedHost ?? requestHeaders.get("host");
   const forwardedProto = requestHeaders.get("x-forwarded-proto");
