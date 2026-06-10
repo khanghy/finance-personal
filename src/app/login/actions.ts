@@ -28,6 +28,24 @@ export async function signInWithMagicLink(formData: FormData) {
   redirect("/login?sent=1");
 }
 
+export async function signInWithPassword(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+
+  if (!email || !password) {
+    redirect("/login?error=missing-credentials");
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect("/");
+}
+
 function getRequestOrigin(requestHeaders: Headers) {
   const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (configuredSiteUrl && configuredSiteUrl !== "http://localhost:3000") {

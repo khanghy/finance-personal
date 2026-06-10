@@ -2,7 +2,7 @@ import { Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { signInWithMagicLink } from "./actions";
+import { signInWithMagicLink, signInWithPassword } from "./actions";
 
 export default async function LoginPage({
   searchParams,
@@ -19,6 +19,14 @@ export default async function LoginPage({
           <CardDescription>Nhập email để nhận magic link từ Supabase Auth.</CardDescription>
         </CardHeader>
         <CardContent>
+          <form action={signInWithPassword} className="grid gap-4">
+            <Input name="email" type="email" placeholder="ban@example.com" required />
+            <Input name="password" type="password" placeholder="Mật khẩu" required />
+            <Button type="submit">Đăng nhập</Button>
+          </form>
+
+          <div className="my-5 h-px bg-slate-200" />
+
           <form action={signInWithMagicLink} className="grid gap-4">
             <Input name="email" type="email" placeholder="ban@example.com" required />
             <Button type="submit">
