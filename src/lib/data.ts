@@ -4,11 +4,12 @@ import { debts as demoDebts, transactions as demoTransactions } from "@/lib/mock
 import type { AppNotification, Debt, Transaction } from "@/lib/types";
 
 export type FinanceData = {
-  mode: "demo" | "authenticated" | "anonymous";
+  mode: "demo" | "authenticated" | "anonymous" | "error";
   userId?: string;
   transactions: Transaction[];
   debts: Debt[];
   notifications: AppNotification[];
+  errorMessage?: string;
 };
 
 export async function getFinanceData(): Promise<FinanceData> {
@@ -45,8 +46,16 @@ export async function getFinanceData(): Promise<FinanceData> {
   ]);
 
   if (transactionsResult.error || debtsResult.error || notificationsResult.error) {
-    console.error(transactionsResult.error ?? debtsResult.error ?? notificationsResult.error);
-    return { mode: "authenticated", userId: user.id, transactions: demoTransactions, debts: demoDebts, notifications: [] };
+    const error = transactionsResult.error ?? debtsResult.error ?? notificationsResult.error;
+    console.error(error);
+    return {
+      mode: "error",
+      userId: user.id,
+      transactions: [],
+      debts: [],
+      notifications: [],
+      errorMessage: error?.message ?? "Không thể tải dữ liệu tài chính từ Supabase.",
+    };
   }
 
   return {

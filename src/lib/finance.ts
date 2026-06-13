@@ -35,6 +35,14 @@ export function calculateCashflow(transactions: Transaction[], debts: Debt[]): C
   };
 }
 
+export function filterTransactionsByMonth(transactions: Transaction[], month: string): Transaction[] {
+  return transactions.filter((transaction) => transaction.date.slice(0, 7) === month);
+}
+
+export function calculateMonthlyCashflow(transactions: Transaction[], debts: Debt[], month: string): CashflowSummary {
+  return calculateCashflow(filterTransactionsByMonth(transactions, month), debts);
+}
+
 export function buildAvalanchePlan(debts: Debt[]): DebtPlanItem[] {
   return debts
     .filter((debt) => debt.currentBalance > 0)
