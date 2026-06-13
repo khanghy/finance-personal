@@ -29,7 +29,15 @@ import {
   importTransactionsCsvAction,
   markNotificationReadAction,
 } from "@/app/actions";
-import { buildAvalanchePlan, buildSnowballPlan, calculateCashflow, categoryExpenseSeries, monthlySeries } from "@/lib/finance";
+import {
+  buildAvalanchePlan,
+  buildSnowballPlan,
+  calculateCashflow,
+  calculateMonthlyCashflow,
+  categoryExpenseSeries,
+  filterTransactionsByMonth,
+  monthlySeries,
+} from "@/lib/finance";
 import { getFinanceData } from "@/lib/data";
 import { generateCashflowNotification, generateDebtNotifications } from "@/lib/notifications";
 import { transactionsToCsv } from "@/lib/csv";
@@ -49,12 +57,14 @@ type TabKey = (typeof tabs)[number]["key"];
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; error?: string; saved?: string }>;
+  searchParams: Promise<{ tab?: string; error?: string; saved?: string; month?: string }>;
 }) {
   const params = await searchParams;
   const activeTab = tabs.some((tab) => tab.key === params.tab) ? (params.tab as TabKey) : "dashboard";
+  const selectedMonth = normalizeMonthParam(params.month);
   const data = await getFinanceData();
-  const summary = calculateCashflow(data.transactions, data.debts);
+  const summary = calculateMonthlyCashflow(data.transactions, data.debts, selectedMonth);
+  const selectedMonthTransactions = filterTransactionsByMonth(data.transactions, selectedMonth);
   const generatedNotifications = [
     ...generateDebtNotifications(data.debts),
     ...generateCashflowNotification(summary.net),
@@ -97,34 +107,37 @@ export default async function Home({
                   className={`whitespace-nowrap rounded-md px-3 py-2 font-medium ${
                     activeTab === tab.key ? "bg-teal-700 text-white" : "text-slate-600 hover:bg-slate-100"
                   }`}
-                  href={`/?tab=${tab.key}`}
+                  href={`/?tab=${tab.key}&month=${selectedMonth}`}
                   key={tab.key}
                 >
                   {tab.label}
                 </a>
               ))}
             </nav>
-            <StatusBanner mode={data.mode} error={params.error} saved={params.saved} />
+            <StatusBanner mode={data.mode} error={params.error} saved={params.saved} dataError={data.errorMessage} />
           </div>
         </div>
       </header>
 
       <div className="mx-auto grid max-w-7xl gap-5 px-4 py-5 sm:gap-6 sm:px-6 sm:py-6 lg:px-8">
-        {activeTab === "dashboard" ? (
+        {data.mode === "error" ? <DataErrorState message={data.errorMessage} /> : null}
+        {data.mode !== "error" && activeTab === "dashboard" ? (
           <DashboardTab
             summary={summary}
+            selectedMonth={selectedMonth}
             transactions={data.transactions}
+            selectedMonthTransactions={selectedMonthTransactions}
             debts={data.debts}
             notifications={notifications}
           />
         ) : null}
-        {activeTab === "transactions" ? <TransactionsTab transactions={data.transactions} /> : null}
-        {activeTab === "debts" ? <DebtsTab debts={data.debts} avalanche={avalanche} snowball={snowball} /> : null}
-        {activeTab === "notifications" ? <NotificationsTab notifications={notifications} /> : null}
-        {activeTab === "advisor" ? (
+        {data.mode !== "error" && activeTab === "transactions" ? <TransactionsTab transactions={data.transactions} /> : null}
+        {data.mode !== "error" && activeTab === "debts" ? <DebtsTab debts={data.debts} avalanche={avalanche} snowball={snowball} /> : null}
+        {data.mode !== "error" && activeTab === "notifications" ? <NotificationsTab notifications={notifications} /> : null}
+        {data.mode !== "error" && activeTab === "advisor" ? (
           <AdvisorTab summary={summary} debts={data.debts} avalanche={avalanche} snowball={snowball} />
         ) : null}
-        {activeTab === "import" ? <ImportTab /> : null}
+        {data.mode !== "error" && activeTab === "import" ? <ImportTab /> : null}
       </div>
     </main>
   );
@@ -132,17 +145,33 @@ export default async function Home({
 
 function DashboardTab({
   summary,
+  selectedMonth,
   transactions,
+  selectedMonthTransactions,
   debts,
   notifications,
 }: {
   summary: ReturnType<typeof calculateCashflow>;
+  selectedMonth: string;
   transactions: Parameters<typeof monthlySeries>[0];
+  selectedMonthTransactions: Parameters<typeof monthlySeries>[0];
   debts: Parameters<typeof buildAvalanchePlan>[0];
   notifications: ReturnType<typeof generateDebtNotifications>;
 }) {
   return (
     <>
+      <section className="flex flex-col justify-between gap-3 rounded-md border border-slate-200 bg-white p-4 sm:flex-row sm:items-center">
+        <div>
+          <p className="text-sm font-medium text-slate-950">Tháng thống kê</p>
+          <p className="mt-1 text-sm text-slate-500">Các thẻ chỉ số dùng giao dịch trong tháng được chọn.</p>
+        </div>
+        <form className="flex items-center gap-2" method="get">
+          <input name="tab" type="hidden" value="dashboard" />
+          <Input className="w-40" name="month" type="month" defaultValue={selectedMonth} />
+          <Button type="submit" variant="outline">Xem</Button>
+        </form>
+      </section>
+
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <MetricCard icon={<CircleDollarSign size={18} />} label="Thu nhập tháng" value={formatVnd(summary.income)} tone="teal" />
         <MetricCard icon={<ReceiptText size={18} />} label="Chi tiêu tháng" value={formatVnd(summary.expense)} tone="amber" />
@@ -167,7 +196,7 @@ function DashboardTab({
             <CardDescription>Nhóm chi lớn nhất trong kỳ hiện tại.</CardDescription>
           </CardHeader>
           <CardContent>
-            <CategoryExpenseChart data={categoryExpenseSeries(transactions)} />
+            <CategoryExpenseChart data={categoryExpenseSeries(selectedMonthTransactions)} />
           </CardContent>
         </Card>
       </section>
@@ -584,23 +613,60 @@ function MetricCard({
   );
 }
 
-function StatusBanner({ mode, error, saved }: { mode: string; error?: string; saved?: string }) {
+function StatusBanner({ mode, error, saved, dataError }: { mode: string; error?: string; saved?: string; dataError?: string }) {
   const modeText = {
     demo: "Demo mode: chưa cấu hình Supabase, form ghi dữ liệu sẽ yêu cầu env và đăng nhập.",
     anonymous: "Supabase đã cấu hình nhưng bạn chưa đăng nhập; app đang hiển thị dữ liệu demo.",
     authenticated: "Backend Supabase đang hoạt động với session hiện tại.",
+    error: "Không thể tải dữ liệu thật từ Supabase cho phiên đăng nhập hiện tại.",
   }[mode];
 
   return (
     <div className="flex flex-col gap-2 md:flex-row">
-      <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-        <Database size={16} className="text-teal-700" />
+      <div className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${mode === "error" ? "border-rose-200 bg-rose-50 text-rose-800" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
+        <Database size={16} className={mode === "error" ? "text-rose-700" : "text-teal-700"} />
         {modeText}
       </div>
       {saved ? <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Đã lưu: {saved}</div> : null}
       {error ? <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</div> : null}
+      {dataError ? <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{dataError}</div> : null}
     </div>
   );
+}
+
+function DataErrorState({ message }: { message?: string }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Không thể tải dữ liệu tài chính</CardTitle>
+        <CardDescription>
+          Phiên đăng nhập đã được nhận diện, nhưng truy vấn Supabase đang lỗi nên hệ thống không hiển thị dữ liệu demo thay thế.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex gap-3 rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+          <AlertTriangle className="mt-0.5 shrink-0 text-rose-700" size={18} />
+          <p>{message ?? "Vui lòng thử lại sau hoặc kiểm tra cấu hình Supabase."}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function normalizeMonthParam(month?: string) {
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    return month;
+  }
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    month: "2-digit",
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+  }).formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value ?? new Date().getFullYear().toString();
+  const currentMonth = parts.find((part) => part.type === "month")?.value ?? String(new Date().getMonth() + 1).padStart(2, "0");
+
+  return `${year}-${currentMonth}`;
 }
 
 function DebtStatusBadge({ status }: { status: string }) {
